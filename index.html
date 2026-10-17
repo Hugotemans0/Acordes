@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}[hidden]{display:none!important}</style>
+<title>Acordes al Ritmo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: barra de transporte arriba, escenario a pantalla completa con línea de foco fija; editor como vista alternativa */
+:root{
+  --bg:#f3f1ec; --panel:#e8e4dc; --fg:#1d2230; --muted:#6b6f7a; --line:#d4cfc4;
+  --chord:#c2410c; --focus:#0f766e; --focus-soft:rgba(15,118,110,.10); --btn:#1d2230; --btn-fg:#f3f1ec;
+  --f-ui:"Bricolage Grotesque",system-ui,sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --size:20px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141824; --panel:#1d2232; --fg:#e7e3da; --muted:#8a8fa0; --line:#2c3247;
+  --chord:#fbbf62; --focus:#5eead4; --focus-soft:rgba(94,234,212,.08); --btn:#e7e3da; --btn-fg:#141824; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141824; --panel:#1d2232; --fg:#e7e3da; --muted:#8a8fa0; --line:#2c3247;
+  --chord:#fbbf62; --focus:#5eead4; --focus-soft:rgba(94,234,212,.08); --btn:#e7e3da; --btn-fg:#141824; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);display:flex;flex-direction:column;overflow:hidden}
+header{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding-block:10px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  border-bottom:1px solid var(--line);background:var(--panel)}
+h1{font-size:18px;margin:0;font-weight:700;letter-spacing:-.01em;margin-right:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grp{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+button,.filebtn{font:600 13px var(--f-ui);border:1px solid var(--line);background:var(--bg);color:var(--fg);
+  border-radius:6px;padding:7px 11px;cursor:pointer;white-space:nowrap}
+button:hover,.filebtn:hover{border-color:var(--muted)}
+button:focus-visible,.filebtn:focus-within,input:focus-visible,textarea:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+button.primary{background:var(--btn);color:var(--btn-fg);border-color:var(--btn)}
+button.rec{border-color:var(--chord);color:var(--chord)}
+button.rec.on{background:var(--chord);color:var(--bg)}
+.filebtn input{display:none}
+label.small{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+input[type=range]{width:110px;accent-color:var(--focus)}
+.val{font:600 12px var(--f-mono);min-width:3.5em;text-align:right;font-variant-numeric:tabular-nums}
+.status{font:12px var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.status b{color:var(--fg)}
+main{flex:1;position:relative;min-height:0}
+#stage{position:absolute;inset:0;overflow:hidden;cursor:default}
+#sheet{position:absolute;left:0;right:0;top:0;will-change:transform;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.inner{max-width:900px;margin:0 auto}
+.row{font-family:var(--f-mono);font-size:var(--size);line-height:1.35;white-space:pre;padding:.25em .5em;border-radius:6px;
+  transition:opacity .25s,background .25s;opacity:.45;cursor:pointer;position:relative;overflow-x:auto}
+.row.past{opacity:.25}
+.row.cur{opacity:1;background:var(--focus-soft)}
+.row.next{opacity:.8}
+.row .c{color:var(--chord);font-weight:600;display:block}
+.row .l{display:block}
+.row.sec{font-family:var(--f-ui);font-size:calc(var(--size)*.7);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-top:1em}
+.row .mk{position:absolute;right:.4em;top:.3em;font:11px var(--f-mono);color:var(--focus);opacity:.8}
+#focusline{position:absolute;left:0;right:0;top:35%;height:0;border-top:2px dashed var(--focus);opacity:.5;pointer-events:none}
+#focusline span{position:absolute;right:max(16px,env(safe-area-inset-right,0px));top:-20px;font:11px var(--f-mono);color:var(--focus)}
+#editor{position:absolute;inset:0;overflow:auto;padding-block:16px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#editor .inner{display:flex;flex-direction:column;gap:12px}
+#editor p{margin:0;color:var(--muted);font-size:14px;line-height:1.5;max-width:65ch}
+#title{font:700 18px var(--f-ui);background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+#src{min-height:55vh;font:15px/1.4 var(--f-mono);background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:12px;resize:vertical;white-space:pre;overflow:auto}
+.help{font-size:13px;color:var(--muted);line-height:1.6}
+kbd{font:11px var(--f-mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 5px;background:var(--bg);color:var(--fg)}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--btn);color:var(--btn-fg);
+  font:600 13px var(--f-ui);padding:8px 14px;border-radius:6px;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+#tapzone{display:none}
+.xfer{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:14px}
+.xfer h2{font-size:15px;margin:0}
+.xfer .grp{gap:8px}
+#xcode{min-height:70px;font:12px/1.4 var(--f-mono);background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:8px;word-break:break-all}
+@media (pointer:coarse){
+  #tapzone.on{display:block;position:fixed;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));
+    bottom:calc(16px + env(safe-area-inset-bottom,0px));padding:18px;font-size:16px}
+}
+@media (max-width:640px){
+  input[type=range]{width:80px}
+  #tapzone.on{display:block;position:fixed;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));
+    bottom:calc(16px + env(safe-area-inset-bottom,0px));padding:18px;font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){.row{transition:none}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="h1">Acordes al Ritmo</h1>
+  <div class="grp">
+    <button id="bView">Editar letra</button>
+    <label class="filebtn" title="Carga el mp3 de la canción para sincronizar con él">♪ Cargar audio<input type="file" id="audioFile" accept="audio/*"></label>
+  </div>
+  <div class="grp">
+    <button id="bPlay" class="primary">▶ Tocar</button>
+    <button id="bRec" class="rec">● Grabar ritmo</button>
+    <button id="bRestart">⟲</button>
+    <button id="bMute" title="La letra sigue bajando con tu ritmo grabado, sin sonido">🔊 Música</button>
+    <label class="small">Tempo <input type="range" id="tempo" min="50" max="150" value="100" step="5"><span class="val" id="tempoV">100%</span></label>
+  </div>
+  <div class="grp">
+    <label class="small">Vel. <input type="range" id="speed" min="5" max="120" value="35"><span class="val" id="speedV"></span></label>
+    <label class="small">Letra <input type="range" id="size" min="14" max="34" value="20"></label>
+    <span class="grp"><button id="tDown" title="Bajar medio tono">−½</button><span class="val" id="tV" style="min-width:2em;text-align:center">0</span><button id="tUp" title="Subir medio tono">+½</button></span>
+  </div>
+  <span class="status" id="status"></span>
+</header>
+
+<main>
+  <div id="stage"><div id="sheet"><div class="inner" id="sheetInner"></div></div><div id="focusline"><span>ahora</span></div></div>
+  <div id="editor" hidden>
+    <div class="inner">
+      <input id="title" placeholder="Título de la canción">
+      <p>Copia la canción desde Cifra Club (letra con los acordes encima) y pégala aquí. Las líneas solo de acordes se emparejan con la línea de letra de debajo. Las etiquetas entre corchetes, como [Refrão], se muestran como secciones.</p>
+      <textarea id="src" spellcheck="false"></textarea>
+      <div class="help">
+        <b>Cómo sincronizar con la voz:</b> pulsa <b>Grabar ritmo</b> mientras suena la canción y toca <kbd>Espacio</kbd> (o el botón grande en el móvil) justo cuando empieza cada línea. <kbd>Retroceso</kbd> deshace la última marca. Después, <b>Tocar</b> baja la letra siguiendo esos tiempos: rápido donde canta rápido, lento donde se alarga. Si cargas el audio, la sincronización va pegada a la canción y puedes pausar o saltar.<br>
+        Sin marcas, la letra baja a velocidad constante (deslizador <b>Vel.</b>, o <kbd>↑</kbd> <kbd>↓</kbd>). Durante la reproducción, haz clic en una línea para saltar a ella. <kbd>P</kbd> tocar/pausa, <kbd>R</kbd> reiniciar, <kbd>M</kbd> silenciar música.<br>
+        <b>Sin música:</b> pulsa <b>🔊 Música</b> para silenciarla. La letra sigue bajando exactamente con el ritmo que grabaste, para que toques y cantes tú. <b>Tempo</b> lo hace todo más lento o más rápido para practicar.<br>
+        Todo se guarda en este navegador por título.
+      </div>
+      <div class="xfer">
+        <h2>Pasar a otro dispositivo</h2>
+        <p>Las canciones grabadas se guardan solo en el navegador donde las grabaste. Para llevarlas al iPad: pulsa <b>Copiar código</b> aquí, envíate ese texto (WhatsApp, correo, Notas…), ábrelo en el iPad, pégalo en este cuadro y pulsa <b>Importar</b>.</p>
+        <textarea id="xcode" spellcheck="false" placeholder="Pega aquí el código de una canción"></textarea>
+        <div class="grp">
+          <button id="bExport" class="primary">Copiar código de esta canción</button>
+          <button id="bExportAll">Copiar todas</button>
+          <button id="bImport">Importar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <button id="tapzone" class="primary">Marcar línea (Espacio)</button>
+</main>
+<audio id="audio" preload="auto"></audio>
+<div id="toast"></div>
+
+<script>
+const SAMPLE_TITLE="Ejemplo — Canción de prueba";
+const SAMPLE=`[Intro]
+Am  F  C  G
+
+[Verso]
+Am                 F
+Camino por la orilla con la luz de abril
+C                     G
+cuento cada ola que se aleja de aquí
+Am                     F
+el viento me pregunta si me voy a quedar
+C                 G
+y no sé qué contestar
+
+[Estribillo]
+F            G
+Lento, lento, deja que suene
+Am               C
+deja que la noche se llene
+F              G
+y si el ritmo cambia, yo lo sigo
+Am        G       F
+pasito a pasito contigo
+
+[Final]
+Am  F  C  G`;
+
+const $=id=>document.getElementById(id);
+const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+let state={title:SAMPLE_TITLE,src:SAMPLE,marks:[],transpose:0};
+let rows=[],tops=[],H=0;
+let playing=false,recording=false,recIdx=0;
+let clockStart=0,clockOffset=0; // tiempo de reloj si no hay audio
+let y=0,lastFrame=0;
+let speed=35;
+const audio=$("audio");let hasAudio=false;
+
+/* ---------- acordes ---------- */
+const CHORD=/^[A-G](#|b)?(m|maj|min|dim|aug|sus|add|M)?[0-9]*(\([^)]*\))?((sus|add|maj|M|b|#)?[0-9]+)*(\/[A-G](#|b)?)?$/;
+const isChordLine=s=>{const t=s.trim().split(/\s+/).filter(Boolean);return t.length>0&&t.every(x=>CHORD.test(x)||/^[|x0-9()\-]+$/.test(x))&&t.some(x=>CHORD.test(x))};
+const SH=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"],FL={Db:"C#",Eb:"D#",Gb:"F#",Ab:"G#",Bb:"A#"};
+function tNote(n,k){n=FL[n]||n;const i=SH.indexOf(n);return i<0?n:SH[(i+k+120)%12]}
+function transposeLine(line,k){
+  if(!k)return line;
+  // sustituye cada acorde conservando la posición de la columna lo mejor posible
+  let out="",debt=0;
+  line.replace(/(\S+)|(\s+)/g,(m,word,sp)=>{
+    if(sp){let n=sp.length-debt;if(n<1)n=1;debt=sp.length-debt<1?debt-sp.length+1:0;out+=" ".repeat(n);return m}
+    const nw=CHORD.test(word)?word.replace(/[A-G](#|b)?/g,x=>tNote(x,k)):word;
+    debt+=nw.length-word.length;if(debt<0){out+=" ".repeat(-debt);debt=0}
+    out+=nw;return m});
+  return out;
+}
+
+/* ---------- parseo ---------- */
+function parse(src){
+  const L=src.replace(/\r/g,"").split("\n"),out=[];
+  for(let i=0;i<L.length;i++){
+    const s=L[i];if(!s.trim())continue;
+    if(/^\s*\[.*\]\s*$/.test(s)){out.push({sec:s.trim().slice(1,-1)});continue}
+    if(isChordLine(s)){
+      const nx=L[i+1];
+      if(nx!==undefined&&nx.trim()&&!isChordLine(nx)&&!/^\s*\[.*\]\s*$/.test(nx)){out.push({c:s.replace(/\s+$/,""),l:nx});i++}
+      else out.push({c:s.replace(/\s+$/,""),l:""});
+    }else out.push({c:"",l:s});
+  }
+  return out;
+}
+const esc=s=>s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function fmt(t){if(t==null)return"";const m=Math.floor(t/60),s=(t%60).toFixed(1).padStart(4,"0");return m+":"+s}
+
+function render(){
+  rows=parse(state.src);
+  $("sheetInner").innerHTML=rows.map((r,i)=>r.sec!==undefined
+    ?`<div class="row sec" data-i="${i}">${esc(r.sec)}<span class="mk"></span></div>`
+    :`<div class="row" data-i="${i}">${r.c?`<span class="c">${esc(transposeLine(r.c,state.transpose))}</span>`:""}${r.l?`<span class="l">${esc(r.l)}</span>`:""}<span class="mk"></span></div>`).join("")
+    +`<div style="height:70vh"></div>`;
+  $("h1").textContent=state.title||"Acordes al Ritmo";
+  $("tV").textContent=(state.transpose>0?"+":"")+state.transpose;
+  measure();updateMarks();
+}
+function measure(){
+  const els=[...document.querySelectorAll("#sheetInner .row")];
+  tops=els.map(e=>e.offsetTop+e.offsetHeight/2);
+  H=$("stage").clientHeight;
+}
+function updateMarks(){
+  document.querySelectorAll("#sheetInner .row").forEach((e,i)=>{e.querySelector(".mk").textContent=state.marks[i]!=null?fmt(state.marks[i]):""});
+}
+
+/* ---------- tiempo ---------- */
+let muted=false,rate=1;
+function now(){return hasAudio?audio.currentTime:(playing||recording?clockOffset+(performance.now()-clockStart)/1000*(recording?1:rate):clockOffset)}
+function setTime(t){t=Math.max(0,t);if(hasAudio)audio.currentTime=t;else{clockOffset=t;clockStart=performance.now()}}
+const synced=()=>state.marks.filter(m=>m!=null).length>=2;
+
+function targetY(t){
+  // centro de la fila en la línea de foco
+  const m=state.marks,pts=[];
+  for(let i=0;i<rows.length;i++)if(m[i]!=null)pts.push([m[i],tops[i]]);
+  if(pts.length<2)return null;
+  if(t<=pts[0][0]){const f=pts[0][0]>0?t/pts[0][0]:1;return tops[0]+(pts[0][1]-tops[0])*Math.min(1,f)-(pts[0][1]-tops[0])*0+0}
+  for(let k=0;k<pts.length-1;k++){
+    const[a,ya]=pts[k],[b,yb]=pts[k+1];
+    if(t<b){const f=(t-a)/(b-a);return ya+(yb-ya)*f}
+  }
+  // tras la última marca: sigue a la velocidad media
+  const[a0,y0]=pts[0],[a1,y1]=pts[pts.length-1];
+  const v=(y1-y0)/Math.max(.1,a1-a0);
+  return Math.min(y1+v*(t-a1),tops[tops.length-1]||0);
+}
+
+function curIndex(cy){let best=0;for(let i=0;i<tops.length;i++){if(tops[i]<=cy+4)best=i}return best}
+
+function frame(ts){
+  const dt=lastFrame?Math.min(.1,(ts-lastFrame)/1000):0;lastFrame=ts;
+  const t=now();
+  if(recording){
+    const tgt=tops[Math.max(0,recIdx-1)]??0;
+    y+=(tgt-y)*Math.min(1,dt*8);
+  }else if(playing){
+    const ty=synced()?targetY(t):null;
+    if(ty!=null)y+=(ty-y)*Math.min(1,dt*10);
+    else y+=speed*dt;
+  }
+  const maxY=tops[tops.length-1]||0;y=Math.max(0,Math.min(y,maxY));
+  $("sheet").style.transform=`translateY(${(H*.35-y).toFixed(1)}px)`;
+  const ci=recording?Math.max(0,recIdx-1):curIndex(y);
+  document.querySelectorAll("#sheetInner .row").forEach((e,i)=>{
+    e.classList.toggle("cur",i===ci);e.classList.toggle("past",i<ci);e.classList.toggle("next",i===ci+1)});
+  status(t);
+  requestAnimationFrame(frame);
+}
+function status(t){
+  const n=state.marks.filter(m=>m!=null).length;
+  let s=`<b>${fmt(t)}</b> · `;
+  if(recording)s+=`grabando línea ${Math.min(recIdx+1,rows.length)}/${rows.length}`;
+  else s+=synced()?`sincronizado (${n} marcas)`:"velocidad constante";
+  if(hasAudio)s+=" · audio";
+  $("status").innerHTML=s;
+}
+
+/* ---------- controles ---------- */
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("show"),1600)}
+function save(){store.set("ar:song:"+state.title,{src:state.src,marks:state.marks,transpose:state.transpose});store.set("ar:last",state.title)}
+
+function play(){
+  if(recording)stopRec();
+  if(playing){pause();return}
+  playing=true;clockStart=performance.now();
+  if(hasAudio)audio.play().catch(()=>{});
+  $("bPlay").textContent="❚❚ Pausa";
+}
+function pause(){
+  if(!hasAudio)clockOffset=now();
+  playing=false;if(hasAudio)audio.pause();
+  $("bPlay").textContent="▶ Tocar";
+}
+function restart(){
+  const was=playing;pause();if(recording)stopRec();setTime(0);y=0;if(was)play();
+}
+function startRec(){
+  pause();state.marks=[];recIdx=0;y=0;setTime(0);
+  recording=true;clockStart=performance.now();
+  if(hasAudio)audio.play().catch(()=>{});
+  $("bRec").classList.add("on");$("bRec").textContent="■ Parar";
+  $("tapzone").classList.add("on");
+  updateMarks();toast("Pulsa Espacio al empezar cada línea");
+}
+function stopRec(){
+  if(!recording)return;
+  if(!hasAudio)clockOffset=now();
+  recording=false;if(hasAudio)audio.pause();
+  $("bRec").classList.remove("on");$("bRec").textContent="● Grabar ritmo";
+  $("tapzone").classList.remove("on");
+  save();toast(synced()?"Ritmo guardado":"Pocas marcas: se usará velocidad constante");
+}
+function tap(){
+  if(!recording||recIdx>=rows.length)return;
+  state.marks[recIdx]=now();recIdx++;updateMarks();
+  if(recIdx>=rows.length)stopRec();
+}
+function undo(){if(!recording||recIdx===0)return;recIdx--;state.marks[recIdx]=null;updateMarks()}
+
+function setMute(m){muted=m;audio.muted=m;$("bMute").textContent=m?"🔇 Sin música":"🔊 Música";$("bMute").classList.toggle("primary",m);store.set("ar:muted",m)}
+$("bMute").onclick=()=>{setMute(!muted);toast(muted?"Música silenciada: la letra sigue tu ritmo":"Música activada")};
+$("tempo").oninput=e=>{const t=now();rate=e.target.value/100;$("tempoV").textContent=e.target.value+"%";if(hasAudio)audio.playbackRate=rate;else{clockOffset=t;clockStart=performance.now()}};
+/* ---------- exportar / importar ---------- */
+function enc(o){return "AR1:"+btoa(unescape(encodeURIComponent(JSON.stringify(o))))}
+function dec(s){s=s.trim();if(!s.startsWith("AR1:"))throw 0;return JSON.parse(decodeURIComponent(escape(atob(s.slice(4)))))}
+function syncEditorToState(){const nt=$("title").value.trim()||state.title,ns=$("src").value;if(nt===state.title&&ns===state.src)return;}
+function copyCode(code,msg){
+  const x=$("xcode");x.value=code;
+  const sel=()=>{x.focus();x.select();toast("Código seleccionado: cópialo con Copiar")};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(code).then(()=>toast(msg),sel);else sel();
+}
+$("bExport").onclick=()=>{save();copyCode(enc({songs:[{title:state.title,src:state.src,marks:state.marks,transpose:state.transpose}]}),"Copiado: "+state.title)};
+$("bExportAll").onclick=()=>{
+  save();const songs=[];
+  try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k.startsWith("ar:song:")){const s=store.get(k);if(s)songs.push({title:k.slice(8),...s})}}}catch(e){}
+  copyCode(enc({songs}),"Copiadas "+songs.length+" canciones");
+};
+$("bImport").onclick=()=>{
+  let d;try{d=dec($("xcode").value)}catch(e){toast("Ese texto no es un código válido. Cópialo entero, empieza por AR1:");return}
+  const songs=d.songs||[];if(!songs.length){toast("El código no tiene canciones");return}
+  songs.forEach(s=>store.set("ar:song:"+s.title,{src:s.src,marks:s.marks||[],transpose:s.transpose||0}));
+  const s=songs[0];state={title:s.title,src:s.src,marks:s.marks||[],transpose:s.transpose||0};store.set("ar:last",s.title);
+  $("title").value=state.title;$("src").value=state.src;$("xcode").value="";
+  toast(songs.length>1?"Importadas "+songs.length+" canciones":"Importada: "+s.title);
+};
+$("bPlay").onclick=play;
+$("bRestart").onclick=restart;
+$("bRec").onclick=()=>recording?stopRec():startRec();
+$("tapzone").onclick=tap;
+$("speed").oninput=e=>{speed=+e.target.value;$("speedV").textContent=speed+" px/s";store.set("ar:speed",speed)};
+$("size").oninput=e=>{document.documentElement.style.setProperty("--size",e.target.value+"px");store.set("ar:size",+e.target.value);requestAnimationFrame(measure)};
+$("tUp").onclick=()=>{state.transpose=(state.transpose+1)%12;render();save()};
+$("tDown").onclick=()=>{state.transpose=(state.transpose-1)%12;render();save()};
+
+$("bView").onclick=()=>{
+  const ed=$("editor");
+  if(ed.hidden){pause();if(recording)stopRec();$("title").value=state.title;$("src").value=state.src;ed.hidden=false;$("stage").hidden=true;$("bView").textContent="✓ Listo"}
+  else{
+    const nt=$("title").value.trim()||"Sin título",ns=$("src").value;
+    if(nt!==state.title){const s=store.get("ar:song:"+nt);state.title=nt;state.marks=s&&s.src===ns?s.marks:[];state.transpose=s?s.transpose||0:0}
+    else if(ns!==state.src)state.marks=[];
+    state.src=ns;ed.hidden=true;$("stage").hidden=false;$("bView").textContent="Editar letra";
+    render();save();y=0;setTime(0);
+  }
+};
+
+$("sheetInner").addEventListener("click",e=>{
+  const r=e.target.closest(".row");if(!r||recording)return;
+  const i=+r.dataset.i;
+  if(synced()){
+    let t=state.marks[i];
+    if(t==null){for(let k=i;k>=0;k--)if(state.marks[k]!=null){t=state.marks[k];break}}
+    setTime(t??0);
+  }
+  y=tops[i];
+});
+
+$("audioFile").onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  pause();audio.src=URL.createObjectURL(f);audio.muted=muted;audio.playbackRate=rate;hasAudio=true;setTime(0);y=0;
+  toast("Audio cargado: "+f.name);
+};
+audio.addEventListener("ended",()=>{playing=false;$("bPlay").textContent="▶ Tocar";if(recording)stopRec()});
+
+document.addEventListener("keydown",e=>{
+  if(!$("editor").hidden)return;
+  if(e.target.tagName==="INPUT"&&e.target.type!=="range")return;
+  if(e.code==="Space"){e.preventDefault();recording?tap():play()}
+  else if(e.code==="Backspace"){e.preventDefault();undo()}
+  else if(e.key==="p"||e.key==="P")play();
+  else if(e.key==="r"||e.key==="R")restart();
+  else if(e.key==="m"||e.key==="M")$("bMute").click();
+  else if(e.code==="ArrowUp"){e.preventDefault();speed=Math.min(120,speed+3);$("speed").value=speed;$("speed").oninput({target:$("speed")})}
+  else if(e.code==="ArrowDown"){e.preventDefault();speed=Math.max(5,speed-3);$("speed").value=speed;$("speed").oninput({target:$("speed")})}
+});
+window.addEventListener("resize",measure);
+
+/* ---------- arranque ---------- */
+(function init(){
+  const last=store.get("ar:last");
+  if(last){const s=store.get("ar:song:"+last);if(s){state={title:last,src:s.src,marks:s.marks||[],transpose:s.transpose||0}}}
+  if(store.get("ar:muted"))setMute(true);
+  const sp=store.get("ar:speed");if(sp){speed=sp;$("speed").value=sp}
+  $("speedV").textContent=speed+" px/s";
+  const sz=store.get("ar:size");if(sz){$("size").value=sz;document.documentElement.style.setProperty("--size",sz+"px")}
+  render();
+  if(document.fonts)document.fonts.ready.then(measure);
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
